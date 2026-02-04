@@ -1,6 +1,10 @@
 # Logs
 logs
 *.log
+*.err
+*-dev.log
+*-dev.err
+dev-pids.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

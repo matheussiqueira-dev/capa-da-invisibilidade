@@ -31,6 +31,13 @@ export const buildApp = () => {
 
   app.register(healthRoutes);
 
+  app.get('/', async () => ({
+    name: 'Invisibility Cloak Backend',
+    status: 'ok',
+    docs: '/health',
+    apiBase: '/api/v1'
+  }));
+
   app.addHook('preHandler', async (request, reply) => {
     if (!request.url.startsWith('/api/v1')) return;
     if (request.method === 'OPTIONS') return;
