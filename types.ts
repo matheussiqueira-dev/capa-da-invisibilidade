@@ -26,4 +26,5 @@ export interface ProcessingConfig {
   satThreshold: number;
   valThreshold: number;
   edgeSoftness: number;
+  targetFps: number;
 }

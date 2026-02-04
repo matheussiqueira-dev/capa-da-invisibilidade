@@ -26,6 +26,7 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
   const animationFrameRef = useRef<number>();
   const configRef = useRef(config);
   const overlayTimerRef = useRef<number | null>(null);
+  const lastFrameRef = useRef(0);
 
   const [errorType, setErrorType] = useState<'PERMISSION_DENIED' | 'UNKNOWN' | null>(null);
   const [overlayMessage, setOverlayMessage] = useState<string | null>(null);
@@ -146,11 +147,20 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
   );
 
   useEffect(() => {
-    const processFrame = () => {
+    const processFrame = (time: number) => {
       if (!canvasRef.current || !videoRef.current || videoRef.current.readyState !== 4) {
         animationFrameRef.current = requestAnimationFrame(processFrame);
         return;
       }
+
+      const targetFps = Math.max(10, configRef.current.targetFps || 30);
+      const frameInterval = 1000 / targetFps;
+
+      if (time - lastFrameRef.current < frameInterval) {
+        animationFrameRef.current = requestAnimationFrame(processFrame);
+        return;
+      }
+      lastFrameRef.current = time;
 
       const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
       if (!ctx) return;

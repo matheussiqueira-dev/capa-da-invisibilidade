@@ -158,6 +158,22 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         />
         <p className="control-hint">Valores maiores deixam a transicao mais suave.</p>
       </div>
+
+      <div className="control-group">
+        <label className="control-label">
+          FPS alvo
+          <span>{config.targetFps}</span>
+        </label>
+        <input
+          type="range"
+          min="15"
+          max="60"
+          step="5"
+          value={config.targetFps}
+          onChange={(e) => handleChange('targetFps', Number(e.target.value))}
+        />
+        <p className="control-hint">Menos FPS reduz uso de CPU; mais FPS melhora fluidez.</p>
+      </div>
     </div>
   );
 };

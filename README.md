@@ -17,6 +17,7 @@ Aplicacao web que simula o efeito de manto da invisibilidade em tempo real usand
 - Captura de cor diretamente na tela
 - Presets de cores e recomendacao automatica de contraste
 - Snapshot instantaneo do efeito atual
+- Controle de FPS para equilibrar performance e fluidez
 
 ## Instalacao e Uso
 1. Instale as dependencias:

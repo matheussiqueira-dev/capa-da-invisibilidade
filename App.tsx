@@ -10,7 +10,8 @@ const DEFAULT_CONFIG: ProcessingConfig = {
   hueThreshold: 15,
   satThreshold: 40,
   valThreshold: 20,
-  edgeSoftness: 30
+  edgeSoftness: 30,
+  targetFps: 30
 };
 
 const App: React.FC = () => {
@@ -92,6 +93,10 @@ const App: React.FC = () => {
               <div className="metric-card">
                 <div className="metric-label">Suavizacao</div>
                 <div className="metric-value">{config.edgeSoftness}%</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">FPS alvo</div>
+                <div className="metric-value">{config.targetFps}</div>
               </div>
             </div>
           </div>
