@@ -7,15 +7,31 @@ interface ControlPanelProps {
   setConfig: React.Dispatch<React.SetStateAction<ProcessingConfig>>;
   onCaptureBackground: () => void;
   onReset: () => void;
+  onSnapshot: () => void;
   hasBackground: boolean;
+  isPickingColor: boolean;
+  onTogglePickColor: () => void;
 }
+
+const colorPresets = [
+  { label: 'Vermelho', hue: 0 },
+  { label: 'Laranja', hue: 25 },
+  { label: 'Amarelo', hue: 55 },
+  { label: 'Verde', hue: 120 },
+  { label: 'Ciano', hue: 190 },
+  { label: 'Azul', hue: 230 },
+  { label: 'Magenta', hue: 315 }
+];
 
 const ControlPanel: React.FC<ControlPanelProps> = ({
   config,
   setConfig,
   onCaptureBackground,
   onReset,
-  hasBackground
+  onSnapshot,
+  hasBackground,
+  isPickingColor,
+  onTogglePickColor
 }) => {
   const handleChange = (key: keyof ProcessingConfig, value: number) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
@@ -28,99 +44,119 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     handleChange('targetHue', h);
   };
 
+  const handlePreset = (hue: number) => {
+    handleChange('targetHue', hue);
+  };
+
   return (
-    <div className="bg-slate-800 p-6 rounded-xl shadow-xl border border-slate-700 space-y-6">
-      <div className="flex flex-col space-y-2">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <span className="w-2 h-8 bg-blue-500 rounded-full"></span>
-          Control Panel
-        </h2>
-        <p className="text-slate-400 text-sm">Adjust sensitivity to refine the invisibility effect.</p>
+    <div className="panel">
+      <div>
+        <h3 className="panel-title">Painel de Controle</h3>
+        <p className="panel-subtitle">Ajuste fino do recorte e acoes rapidas da sessao.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={onCaptureBackground}
-            className={`py-3 px-4 rounded-lg font-bold transition-all shadow-lg ${
-              hasBackground 
-              ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' 
-              : 'bg-emerald-500 hover:bg-emerald-600 text-white animate-pulse'
-            }`}
-          >
-            {hasBackground ? 'Retake Background' : '1. Capture Background'}
-          </button>
-          
-          <button
-             onClick={onReset}
-             className="py-3 px-4 bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/50 rounded-lg font-semibold"
-          >
-             Reset Everything
-          </button>
+      <div className="button-row">
+        <button type="button" className="button button--primary" onClick={onCaptureBackground}>
+          {hasBackground ? 'Regravar fundo' : 'Capturar fundo'}
+        </button>
+        <button type="button" className="button button--secondary" onClick={onSnapshot}>
+          Salvar snapshot
+        </button>
+        <button
+          type="button"
+          className={`button toggle-button ${isPickingColor ? 'is-active' : ''}`}
+          onClick={onTogglePickColor}
+          aria-pressed={isPickingColor}
+        >
+          {isPickingColor ? 'Clique na tela' : 'Capturar cor'}
+        </button>
+        <button type="button" className="button button--danger" onClick={onReset}>
+          Resetar cena
+        </button>
       </div>
 
-      <div className="space-y-4 pt-4 border-t border-slate-700">
-        <div>
-          <label className="flex justify-between text-sm font-medium text-slate-300 mb-2">
-            Target Color
-            <span className="text-blue-400">{Math.round(config.targetHue)}°</span>
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-                type="color"
-                value={hslToHex(config.targetHue, 100, 50)}
-                onChange={handleColorChange}
-                className="h-10 w-full cursor-pointer rounded-lg bg-slate-700 border border-slate-600 p-1"
-            />
-          </div>
-          <p className="text-xs text-slate-500 mt-2">
-            Click to pick the color you want to make invisible.
-          </p>
+      <div className="control-group">
+        <label className="control-label">
+          Cor alvo
+          <span>{Math.round(config.targetHue)} deg</span>
+        </label>
+        <input
+          type="color"
+          value={hslToHex(config.targetHue, 100, 50)}
+          onChange={handleColorChange}
+          className="color-picker"
+          aria-label="Selecionar cor alvo"
+        />
+        <div className="preset-row">
+          {colorPresets.map((preset) => (
+            <button
+              key={preset.label}
+              type="button"
+              className="preset-chip"
+              onClick={() => handlePreset(preset.hue)}
+            >
+              {preset.label}
+            </button>
+          ))}
         </div>
+        <p className="control-hint">Use o seletor ou clique na tela para capturar a cor do tecido.</p>
+      </div>
 
-        <div>
-          <label className="flex justify-between text-sm font-medium text-slate-300 mb-1">
-            Hue Tolerance (Sensitivity)
-            <span className="text-blue-400">±{config.hueThreshold}</span>
-          </label>
-          <input
-            type="range"
-            min="5"
-            max="90"
-            value={config.hueThreshold}
-            onChange={(e) => handleChange('hueThreshold', Number(e.target.value))}
-            className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-        </div>
+      <div className="control-group">
+        <label className="control-label">
+          Tolerancia de matiz
+          <span>±{config.hueThreshold}</span>
+        </label>
+        <input
+          type="range"
+          min="5"
+          max="90"
+          value={config.hueThreshold}
+          onChange={(e) => handleChange('hueThreshold', Number(e.target.value))}
+        />
+      </div>
 
-        <div>
-          <label className="flex justify-between text-sm font-medium text-slate-300 mb-1">
-            Saturation Threshold
-            <span className="text-blue-400">{config.satThreshold}%</span>
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={config.satThreshold}
-            onChange={(e) => handleChange('satThreshold', Number(e.target.value))}
-            className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-        </div>
+      <div className="control-group">
+        <label className="control-label">
+          Saturacao minima
+          <span>{config.satThreshold}%</span>
+        </label>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={config.satThreshold}
+          onChange={(e) => handleChange('satThreshold', Number(e.target.value))}
+        />
+      </div>
 
-        <div>
-          <label className="flex justify-between text-sm font-medium text-slate-300 mb-1">
-            Brightness Threshold
-            <span className="text-blue-400">{config.valThreshold}%</span>
-          </label>
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={config.valThreshold}
-            onChange={(e) => handleChange('valThreshold', Number(e.target.value))}
-            className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-        </div>
+      <div className="control-group">
+        <label className="control-label">
+          Brilho minimo
+          <span>{config.valThreshold}%</span>
+        </label>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={config.valThreshold}
+          onChange={(e) => handleChange('valThreshold', Number(e.target.value))}
+        />
+      </div>
+
+      <div className="control-group">
+        <label className="control-label">
+          Suavizacao de borda
+          <span>{config.edgeSoftness}%</span>
+        </label>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={config.edgeSoftness}
+          onChange={(e) => handleChange('edgeSoftness', Number(e.target.value))}
+        />
+        <p className="control-hint">Valores maiores deixam a transicao mais suave.</p>
       </div>
     </div>
   );

@@ -2,7 +2,6 @@
   "name": "Web Invisibility Cloak",
   "description": "A real-time computer vision application that hides objects of a specific color by substituting them with a captured background, mimicking an invisibility cloak effect.",
   "requestFramePermissions": [
-    "camera",
-    "microphone"
+    "camera"
   ]
 }

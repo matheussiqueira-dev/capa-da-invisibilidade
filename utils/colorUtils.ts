@@ -1,3 +1,5 @@
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
 /**
  * Converts RGB to HSL.
  * r, g, b are in [0, 255]
@@ -35,8 +37,48 @@ export const rgbToHsl = (r: number, g: number, b: number) => {
 };
 
 /**
+ * Hue distance with wrap-around support.
+ */
+export const getHueDistance = (h: number, targetHue: number) => {
+  const diff = Math.abs(h - targetHue);
+  return Math.min(diff, 360 - diff);
+};
+
+/**
+ * Returns a match strength between 0 and 1 for a target hue, with optional edge softening.
+ */
+export const getMatchStrength = (
+  h: number,
+  s: number,
+  l: number,
+  targetHue: number,
+  hueThresh: number,
+  satThresh: number,
+  valThresh: number,
+  edgeSoftness: number
+): number => {
+  if (s < satThresh || l < valThresh || l > 95) {
+    return 0;
+  }
+
+  const distance = getHueDistance(h, targetHue);
+  const softnessRatio = clamp(edgeSoftness / 100, 0, 1);
+  const softThreshold = hueThresh * (1 + softnessRatio);
+
+  if (distance > softThreshold) {
+    return 0;
+  }
+
+  if (softnessRatio === 0 || distance <= hueThresh) {
+    return 1;
+  }
+
+  const denom = Math.max(softThreshold - hueThresh, 1);
+  return clamp(1 - (distance - hueThresh) / denom, 0, 1);
+};
+
+/**
  * Checks if a pixel matches the target color range.
- * Handles Hue wrapping (e.g. Red is near 0 and 360).
  */
 export const isColorMatch = (
   h: number,
@@ -46,18 +88,7 @@ export const isColorMatch = (
   hueThresh: number,
   satThresh: number,
   valThresh: number
-): boolean => {
-  // Saturation and Lightness check (avoid black/white/gray)
-  if (s < satThresh || l < valThresh || l > 95) {
-    return false;
-  }
-
-  // Hue distance calculation with wrap-around support
-  const diff = Math.abs(h - targetHue);
-  const distance = Math.min(diff, 360 - diff);
-
-  return distance <= hueThresh;
-};
+): boolean => getMatchStrength(h, s, l, targetHue, hueThresh, satThresh, valThresh, 0) > 0;
 
 export const hexToRgb = (hex: string) => {
   const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
@@ -66,20 +97,24 @@ export const hexToRgb = (hex: string) => {
   });
 
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 0, g: 0, b: 0 };
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      }
+    : { r: 0, g: 0, b: 0 };
 };
 
 export const hslToHex = (h: number, s: number, l: number): string => {
   l /= 100;
-  const a = s * Math.min(l, 1 - l) / 100;
+  const a = (s * Math.min(l, 1 - l)) / 100;
   const f = (n: number) => {
     const k = (n + h / 30) % 12;
     const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color).toString(16).padStart(2, '0');
+    return Math.round(255 * color)
+      .toString(16)
+      .padStart(2, '0');
   };
   return `#${f(0)}${f(8)}${f(4)}`;
 };

@@ -1,91 +1,158 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import CloakCanvas from './components/CloakCanvas';
 import ControlPanel from './components/ControlPanel';
 import Assistant from './components/Assistant';
-import { CloakStatus, ProcessingConfig } from './types';
+import { ProcessingConfig, SceneMetrics } from './types';
+import { getSceneAdvice } from './services/sceneAdvisor';
+
+const DEFAULT_CONFIG: ProcessingConfig = {
+  targetHue: 0,
+  hueThreshold: 15,
+  satThreshold: 40,
+  valThreshold: 20,
+  edgeSoftness: 30
+};
 
 const App: React.FC = () => {
-  const [status, setStatus] = useState<CloakStatus>(CloakStatus.IDLE);
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [sceneMetrics, setSceneMetrics] = useState<SceneMetrics | null>(null);
   const [triggerCapture, setTriggerCapture] = useState(0);
+  const [triggerSnapshot, setTriggerSnapshot] = useState(0);
+  const [isPickingColor, setIsPickingColor] = useState(false);
+  const [config, setConfig] = useState<ProcessingConfig>(DEFAULT_CONFIG);
 
-  // Default to RED detection
-  const [config, setConfig] = useState<ProcessingConfig>({
-    targetHue: 0,      // Red
-    hueThreshold: 15,  // +/- 15 degrees
-    satThreshold: 40,  // Minimum saturation
-    valThreshold: 20   // Minimum brightness
-  });
+  const advice = useMemo(() => (sceneMetrics ? getSceneAdvice(sceneMetrics) : null), [sceneMetrics]);
 
   const handleCaptureBackground = useCallback(() => {
-    setTriggerCapture(prev => prev + 1);
-    setStatus(CloakStatus.ACTIVE);
+    setTriggerCapture((prev) => prev + 1);
+    setIsPickingColor(false);
   }, []);
 
-  const handleBackgroundCaptured = useCallback((dataUrl: string) => {
+  const handleBackgroundCaptured = useCallback((dataUrl: string, metrics: SceneMetrics) => {
     setBackgroundImage(dataUrl);
+    setSceneMetrics(metrics);
   }, []);
+
+  const handleSnapshot = useCallback(() => {
+    setTriggerSnapshot((prev) => prev + 1);
+  }, []);
+
+  const handleTogglePickColor = useCallback(() => {
+    setIsPickingColor((prev) => !prev);
+  }, []);
+
+  const handleColorPicked = useCallback((hue: number) => {
+    setConfig((prev) => ({ ...prev, targetHue: hue }));
+    setIsPickingColor(false);
+  }, []);
+
+  const handleApplyRecommendation = useCallback(() => {
+    if (!advice) return;
+    setConfig((prev) => ({ ...prev, targetHue: advice.recommendedHue }));
+  }, [advice]);
 
   const handleReset = useCallback(() => {
-    // Soft reset state without reloading page for better UX
     setBackgroundImage(null);
-    setStatus(CloakStatus.IDLE);
+    setSceneMetrics(null);
     setTriggerCapture(0);
+    setTriggerSnapshot(0);
+    setIsPickingColor(false);
+    setConfig(DEFAULT_CONFIG);
   }, []);
 
+  const isLive = Boolean(backgroundImage);
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        
-        {/* Header */}
-        <header className="mb-8 text-center md:text-left">
-          <h1 className="text-4xl md:text-5xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500 mb-2">
-            Invisibility Cloak
-          </h1>
-          <p className="text-slate-400 max-w-2xl">
-            A computer vision experiment running entirely in your browser. 
-            No Python required. Detects color and replaces it with the background.
-          </p>
+    <div className="app">
+      <div className="container">
+        <header className="hero">
+          <div>
+            <span className="hero-badge">Laboratorio visual em tempo real</span>
+            <h1 className="hero-title">Invisibility Cloak Studio</h1>
+            <p className="hero-description">
+              Efeito de manto da invisibilidade com visao computacional no navegador. Ajuste a cor
+              alvo, refine o recorte e crie a ilusao sem depender de servidores externos.
+            </p>
+          </div>
+
+          <div className="hero-card">
+            <div className="status-pill">
+              <span className={`status-dot ${isLive ? 'is-live' : ''}`} />
+              <span>{isLive ? 'Efeito ativo' : 'Pronto para capturar'}</span>
+            </div>
+            <div className="hero-metrics">
+              <div className="metric-card">
+                <div className="metric-label">Matiz alvo</div>
+                <div className="metric-value">{Math.round(config.targetHue)} deg</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Tolerancia</div>
+                <div className="metric-value">±{config.hueThreshold}</div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">Suavizacao</div>
+                <div className="metric-value">{config.edgeSoftness}%</div>
+              </div>
+            </div>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Main Video Area */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
+        <main className="studio">
+          <section className="canvas-card">
+            <div className="canvas-header">
+              <h2 className="canvas-title">Studio View</h2>
+              <p className="canvas-subtitle">
+                Visualizacao ao vivo do recorte. Ative a captura de cor para ajustar com um clique.
+              </p>
+            </div>
             <CloakCanvas
-              status={status}
               config={config}
               onBackgroundCaptured={handleBackgroundCaptured}
               triggerCapture={triggerCapture}
+              triggerSnapshot={triggerSnapshot}
+              isPickingColor={isPickingColor}
+              onColorPicked={handleColorPicked}
             />
-          </div>
+          </section>
 
-          {/* Sidebar Controls */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
-             
-            <ControlPanel 
-                config={config}
-                setConfig={setConfig}
-                onCaptureBackground={handleCaptureBackground}
-                onReset={handleReset}
-                hasBackground={!!backgroundImage}
+          <aside className="panel-stack">
+            <ControlPanel
+              config={config}
+              setConfig={setConfig}
+              onCaptureBackground={handleCaptureBackground}
+              onSnapshot={handleSnapshot}
+              onReset={handleReset}
+              hasBackground={isLive}
+              isPickingColor={isPickingColor}
+              onTogglePickColor={handleTogglePickColor}
             />
 
-            <Assistant backgroundImage={backgroundImage} />
-            
-            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-800 text-sm text-slate-400">
-               <h4 className="font-semibold text-slate-300 mb-2">How to use:</h4>
-               <ol className="list-decimal pl-4 space-y-2">
-                   <li>Allow camera access.</li>
-                   <li>Move out of the camera's view (reveal the empty background).</li>
-                   <li>Click <strong>Capture Background</strong>.</li>
-                   <li>Come back into the frame holding a <strong>Red</strong> object (or change the color slider).</li>
-                   <li>Watch the object disappear!</li>
-               </ol>
+            <Assistant
+              advice={advice}
+              hasBackground={isLive}
+              onApplyRecommendation={handleApplyRecommendation}
+            />
+
+            <div className="panel">
+              <div>
+                <h3 className="panel-title">Fluxo rapido</h3>
+                <p className="panel-subtitle">Passo a passo para um efeito consistente.</p>
+              </div>
+              <ol className="list">
+                <li>Permita a camera quando solicitado.</li>
+                <li>Saia do quadro e capture o fundo.</li>
+                <li>Volte com o tecido da cor alvo.</li>
+                <li>Ajuste tolerancia e suavizacao conforme a luz.</li>
+              </ol>
+              {backgroundImage && (
+                <div>
+                  <p className="panel-subtitle">Referencia do fundo capturado:</p>
+                  <img className="preview" src={backgroundImage} alt="Fundo capturado" />
+                </div>
+              )}
             </div>
-
-          </div>
-        </div>
+          </aside>
+        </main>
       </div>
     </div>
   );

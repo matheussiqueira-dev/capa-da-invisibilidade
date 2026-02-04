@@ -1,18 +1,29 @@
 export interface HSLColor {
-    h: number; // 0-360
-    s: number; // 0-100
-    l: number; // 0-100
+  h: number;
+  s: number;
+  l: number;
 }
 
-export enum CloakStatus {
-    IDLE = 'IDLE',
-    CAPTURING_BACKGROUND = 'CAPTURING_BACKGROUND',
-    ACTIVE = 'ACTIVE'
+export interface SceneMetrics {
+  avgBrightness: number;
+  avgSaturation: number;
+  dominantHue: number;
+  textureScore: number;
+}
+
+export interface SceneAdvice {
+  summary: string;
+  lightingLabel: string;
+  textureLabel: string;
+  recommendedHue: number;
+  recommendedName: string;
+  tips: string[];
 }
 
 export interface ProcessingConfig {
-    targetHue: number;
-    hueThreshold: number;
-    satThreshold: number;
-    valThreshold: number;
+  targetHue: number;
+  hueThreshold: number;
+  satThreshold: number;
+  valThreshold: number;
+  edgeSoftness: number;
 }
