@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
-import { insertMetric, listRecentMetrics, getMetricsSummary, nowIso } from '../db';
-import { parseWithSchema } from '../utils/validation';
+import { insertMetric, listRecentMetrics, getMetricsSummary, nowIso } from '../db/index.js';
+import { parseWithSchema } from '../utils/validation.js';
 
 const metricsSchema = z.object({
   sessionId: z.string().optional(),

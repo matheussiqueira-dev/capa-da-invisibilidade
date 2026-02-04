@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { config } from '../config';
+import { config } from '../config.js';
 
 type Bucket = { count: number; resetAt: number };
 

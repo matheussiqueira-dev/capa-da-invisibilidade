@@ -1,17 +1,33 @@
 # Web Invisibility Cloak
 
 ## Visao Geral
-Aplicacao web que cria o efeito de manto da invisibilidade usando a camera do navegador. O processamento de imagem acontece no frontend, enquanto o backend opcional fornece persistencia de snapshots, metricas e observabilidade.
+Sistema fullstack que simula o efeito de manto da invisibilidade no navegador. O frontend processa a camera em tempo real e permite ajustes finos de matiz e mascaramento. O backend opcional armazena snapshots e metricas de performance para auditoria e analise.
 
-## Visao Geral do Backend
-API REST modular para registrar snapshots do efeito, armazenar metricas de sessao e oferecer endpoints de consulta com foco em seguranca, desempenho e manutencao.
+## Objetivo e Publico-Alvo
+- Criadores, estudantes e equipes que precisam demonstrar efeitos de visao computacional com baixa latencia.
+- Times que desejam registrar resultados e metricas sem depender de servicos externos.
 
-## Arquitetura Adotada
-Monolito modular em Fastify, com camadas de rotas, plugins de seguranca, validacao e persistencia em arquivo JSON (facil de migrar para banco relacional).
+## Arquitetura e Decisoes Tecnicas
+- Frontend: processamento local em Canvas, sem servidores para o loop de video.
+- Backend: API REST modular em Fastify com autenticacao por API key.
+- Persistencia: armazenamento JSON em arquivo para facilitar setup local e facilitar migracao futura.
+- Observabilidade: endpoints de metricas e logs estruturados.
 
-## Tecnologias Utilizadas
+## Stack e Tecnologias
+- Frontend: React, TypeScript, Vite, Canvas API, CSS com tokens de design
 - Backend: Node.js, Fastify, Zod, armazenamento JSON
-- Frontend: React, TypeScript, Vite, Canvas API
+- Testes: Node test runner (backend)
+
+## Estrutura do Projeto
+- `App.tsx`: orquestracao do frontend, estado e integracoes
+- `components/`: UI e controles do efeito
+- `services/`: regras de negocio e integracao com API
+- `utils/`: conversoes de cor e analise de cena
+- `backend/src/app.ts`: composicao do servidor
+- `backend/src/routes/`: endpoints REST
+- `backend/src/plugins/`: seguranca e middlewares
+- `backend/src/db/`: persistencia em arquivo
+- `backend/src/tests/`: testes automatizados
 
 ## Setup e Execucao
 Frontend:
@@ -24,23 +40,21 @@ Backend:
 - `cp .env.example .env`
 - `npm run dev`
 
-## Estrutura do Projeto
-- `App.tsx`: Layout e estado principal do frontend
-- `components/`: UI e controle do efeito
-- `utils/`: Conversoes de cor e analise de cena
-- `backend/src/app.ts`: Composicao do servidor
-- `backend/src/routes/`: Endpoints REST
-- `backend/src/plugins/`: Seguranca, auth e rate limit
-- `backend/src/db/`: Inicializacao SQLite
+## Variaveis de Ambiente
+Frontend (`.env`):
+- `VITE_ENABLE_API=false`
+- `VITE_API_URL=http://localhost:4000`
+- `VITE_API_KEY=change-me`
 
-## Boas Praticas e Padroes
-- Validacao de payload com Zod
-- Autenticacao via API key
-- CORS controlado por ambiente
-- Rate limiting in-memory por IP
-- Erros padronizados e logs estruturados
+Backend (`backend/.env`):
+- `HOST=0.0.0.0`
+- `PORT=4000`
+- `CORS_ORIGIN=http://localhost:3000`
+- `API_KEY=change-me`
+- `STORAGE_DIR=./storage`
+- `DATABASE_PATH=./data/app.json`
 
-## Endpoints Principais
+## API (Resumo)
 - `GET /health`
 - `POST /api/v1/snapshots`
 - `GET /api/v1/snapshots`
@@ -49,10 +63,23 @@ Backend:
 - `GET /api/v1/metrics/summary`
 - `GET /api/v1/metrics/recent`
 
-## Melhorias Futuras
-- Exportacao de video e streaming de snapshots
+## Testes
+Backend:
+- `cd backend`
+- `npm run test`
+
+## Boas Praticas Aplicadas
+- Validacao de dados com Zod
+- Autenticacao via API key
+- Rate limiting por IP
+- CORS configuravel por ambiente
+- Processamento local de video para privacidade
+- Design system com tokens e foco em acessibilidade
+
+## Possiveis Melhorias Futuras
 - Persistencia em PostgreSQL para alta escala
-- Dashboard de metricas em tempo real
+- Exportacao de video e streaming
+- Dashboard em tempo real com WebSockets
 - Autenticacao OAuth2 e RBAC
 
 Autoria: Matheus Siqueira  

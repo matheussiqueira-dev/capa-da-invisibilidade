@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { config } from '../config';
+import { config } from '../config.js';
 
 export type SnapshotRecord = {
   id: string;

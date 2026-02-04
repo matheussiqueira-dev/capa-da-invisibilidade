@@ -59,7 +59,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
         <button type="button" className="button button--primary" onClick={onCaptureBackground}>
           {hasBackground ? 'Regravar fundo' : 'Capturar fundo'}
         </button>
-        <button type="button" className="button button--secondary" onClick={onSnapshot}>
+        <button
+          type="button"
+          className="button button--secondary"
+          onClick={onSnapshot}
+          disabled={!hasBackground}
+        >
           Salvar snapshot
         </button>
         <button

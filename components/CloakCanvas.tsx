@@ -8,8 +8,11 @@ interface CloakCanvasProps {
   onBackgroundCaptured: (dataUrl: string, metrics: SceneMetrics) => void;
   triggerCapture: number;
   triggerSnapshot: number;
+  triggerUpload: number;
   isPickingColor: boolean;
   onColorPicked: (hue: number) => void;
+  onSnapshotCaptured: (dataUrl: string) => void;
+  onFpsSample: (fps: number) => void;
 }
 
 const CloakCanvas: React.FC<CloakCanvasProps> = ({
@@ -17,8 +20,11 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
   onBackgroundCaptured,
   triggerCapture,
   triggerSnapshot,
+  triggerUpload,
   isPickingColor,
-  onColorPicked
+  onColorPicked,
+  onSnapshotCaptured,
+  onFpsSample
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -27,6 +33,8 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
   const configRef = useRef(config);
   const overlayTimerRef = useRef<number | null>(null);
   const lastFrameRef = useRef(0);
+  const fpsFrameCountRef = useRef(0);
+  const fpsLastTickRef = useRef(0);
 
   const [errorType, setErrorType] = useState<'PERMISSION_DENIED' | 'UNKNOWN' | null>(null);
   const [overlayMessage, setOverlayMessage] = useState<string | null>(null);
@@ -120,6 +128,16 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
     showOverlay('Snapshot salvo');
   }, [triggerSnapshot, showOverlay]);
 
+  useEffect(() => {
+    if (triggerUpload === 0 || !canvasRef.current) {
+      return;
+    }
+
+    const dataUrl = canvasRef.current.toDataURL('image/png');
+    onSnapshotCaptured(dataUrl);
+    showOverlay('Snapshot capturado');
+  }, [triggerUpload, onSnapshotCaptured, showOverlay]);
+
   const handleCanvasClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
       if (!isPickingColor || !canvasRef.current) return;
@@ -210,6 +228,18 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
       }
 
       ctx.putImageData(frameData, 0, 0);
+
+      fpsFrameCountRef.current += 1;
+      if (!fpsLastTickRef.current) {
+        fpsLastTickRef.current = time;
+      }
+      const elapsed = time - fpsLastTickRef.current;
+      if (elapsed >= 1000) {
+        const fps = Math.round((fpsFrameCountRef.current * 1000) / elapsed);
+        onFpsSample(fps);
+        fpsFrameCountRef.current = 0;
+        fpsLastTickRef.current = time;
+      }
 
       animationFrameRef.current = requestAnimationFrame(processFrame);
     };

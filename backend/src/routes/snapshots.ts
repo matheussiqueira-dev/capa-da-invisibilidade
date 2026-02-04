@@ -3,9 +3,9 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { config } from '../config';
-import { insertSnapshot, listSnapshots, getSnapshot, nowIso } from '../db';
-import { parseWithSchema } from '../utils/validation';
+import { config } from '../config.js';
+import { insertSnapshot, listSnapshots, getSnapshot, nowIso } from '../db/index.js';
+import { parseWithSchema } from '../utils/validation.js';
 
 const createSnapshotSchema = z.object({
   imageBase64: z.string().min(20),

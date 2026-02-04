@@ -1,9 +1,18 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CloakCanvas from './components/CloakCanvas';
 import ControlPanel from './components/ControlPanel';
 import Assistant from './components/Assistant';
+import ServerPanel from './components/ServerPanel';
 import { ProcessingConfig, SceneMetrics } from './types';
 import { getSceneAdvice } from './services/sceneAdvisor';
+import {
+  getApiConfig,
+  saveSnapshot,
+  sendMetrics,
+  listSnapshots,
+  fetchMetricsSummary,
+  ApiSnapshotItem
+} from './services/apiClient';
 
 const DEFAULT_CONFIG: ProcessingConfig = {
   targetHue: 0,
@@ -14,15 +23,123 @@ const DEFAULT_CONFIG: ProcessingConfig = {
   targetFps: 30
 };
 
+const createSessionId = () => {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `session-${Date.now()}`;
+};
+
 const App: React.FC = () => {
   const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
   const [sceneMetrics, setSceneMetrics] = useState<SceneMetrics | null>(null);
   const [triggerCapture, setTriggerCapture] = useState(0);
   const [triggerSnapshot, setTriggerSnapshot] = useState(0);
+  const [triggerUpload, setTriggerUpload] = useState(0);
   const [isPickingColor, setIsPickingColor] = useState(false);
   const [config, setConfig] = useState<ProcessingConfig>(DEFAULT_CONFIG);
+  const [fps, setFps] = useState(0);
+  const [metricsEnabled, setMetricsEnabled] = useState(true);
+  const [snapshotStatus, setSnapshotStatus] = useState<'idle' | 'sending' | 'success' | 'error' | 'disabled'>(
+    'idle'
+  );
+  const [metricsStatus, setMetricsStatus] = useState<'idle' | 'sending' | 'success' | 'error' | 'disabled'>(
+    'idle'
+  );
+  const [lastSnapshotAt, setLastSnapshotAt] = useState<string | null>(null);
+  const [lastMetricsAt, setLastMetricsAt] = useState<string | null>(null);
+  const [history, setHistory] = useState<ApiSnapshotItem[]>([]);
+  const [summary, setSummary] = useState<{ total: number; avgFps: number; lastEventAt: string | null } | null>(
+    null
+  );
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const apiConfig = useMemo(() => getApiConfig(), []);
+  const apiReady = apiConfig.enabled && apiConfig.apiKey.length > 0;
+  const sessionId = useMemo(() => createSessionId(), []);
 
   const advice = useMemo(() => (sceneMetrics ? getSceneAdvice(sceneMetrics) : null), [sceneMetrics]);
+  const isLive = Boolean(backgroundImage);
+
+  const configRef = useRef(config);
+  const sceneRef = useRef(sceneMetrics);
+  const fpsRef = useRef(0);
+  const metricsBusyRef = useRef(false);
+
+  useEffect(() => {
+    configRef.current = config;
+  }, [config]);
+
+  useEffect(() => {
+    sceneRef.current = sceneMetrics;
+  }, [sceneMetrics]);
+
+  useEffect(() => {
+    fpsRef.current = fps;
+  }, [fps]);
+
+  const refreshHistory = useCallback(async () => {
+    if (!apiReady) return;
+    try {
+      const { items } = await listSnapshots(5);
+      setHistory(items);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Falha ao carregar historico.');
+    }
+  }, [apiReady]);
+
+  const refreshSummary = useCallback(async () => {
+    if (!apiReady) return;
+    try {
+      const data = await fetchMetricsSummary();
+      setSummary(data);
+    } catch (error) {
+      setApiError(error instanceof Error ? error.message : 'Falha ao carregar metricas.');
+    }
+  }, [apiReady]);
+
+  useEffect(() => {
+    if (!apiReady) return;
+    refreshHistory();
+    refreshSummary();
+  }, [apiReady, refreshHistory, refreshSummary]);
+
+  useEffect(() => {
+    if (!apiReady || !metricsEnabled) {
+      setMetricsStatus(apiReady ? 'idle' : 'disabled');
+      return;
+    }
+
+    const interval = window.setInterval(async () => {
+      if (!isLive || fpsRef.current <= 0 || metricsBusyRef.current) {
+        return;
+      }
+      metricsBusyRef.current = true;
+      setMetricsStatus('sending');
+      try {
+        await sendMetrics({
+          sessionId,
+          fps: fpsRef.current,
+          config: configRef.current,
+          scene: sceneRef.current,
+          client: {
+            userAgent: navigator.userAgent,
+            language: navigator.language
+          }
+        });
+        setMetricsStatus('success');
+        setLastMetricsAt(new Date().toISOString());
+        await refreshSummary();
+      } catch (error) {
+        setMetricsStatus('error');
+        setApiError(error instanceof Error ? error.message : 'Falha ao enviar metricas.');
+      } finally {
+        metricsBusyRef.current = false;
+      }
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [apiReady, metricsEnabled, isLive, sessionId, refreshSummary]);
 
   const handleCaptureBackground = useCallback(() => {
     setTriggerCapture((prev) => prev + 1);
@@ -38,6 +155,41 @@ const App: React.FC = () => {
     setTriggerSnapshot((prev) => prev + 1);
   }, []);
 
+  const handleUploadSnapshot = useCallback(() => {
+    if (!apiReady) {
+      setSnapshotStatus('disabled');
+      setApiError('API desativada ou chave ausente.');
+      return;
+    }
+    setSnapshotStatus('sending');
+    setApiError(null);
+    setTriggerUpload((prev) => prev + 1);
+  }, [apiReady]);
+
+  const handleSnapshotCaptured = useCallback(
+    async (dataUrl: string) => {
+      if (!apiReady) return;
+      try {
+        await saveSnapshot({
+          imageBase64: dataUrl,
+          mimeType: 'image/png',
+          width: 640,
+          height: 480,
+          config: configRef.current,
+          scene: sceneRef.current,
+          note: 'Snapshot manual'
+        });
+        setSnapshotStatus('success');
+        setLastSnapshotAt(new Date().toISOString());
+        await refreshHistory();
+      } catch (error) {
+        setSnapshotStatus('error');
+        setApiError(error instanceof Error ? error.message : 'Falha ao enviar snapshot.');
+      }
+    },
+    [apiReady, refreshHistory]
+  );
+
   const handleTogglePickColor = useCallback(() => {
     setIsPickingColor((prev) => !prev);
   }, []);
@@ -52,16 +204,29 @@ const App: React.FC = () => {
     setConfig((prev) => ({ ...prev, targetHue: advice.recommendedHue }));
   }, [advice]);
 
+  const handleToggleMetrics = useCallback(() => {
+    setMetricsEnabled((prev) => !prev);
+  }, []);
+
   const handleReset = useCallback(() => {
     setBackgroundImage(null);
     setSceneMetrics(null);
     setTriggerCapture(0);
     setTriggerSnapshot(0);
+    setTriggerUpload(0);
     setIsPickingColor(false);
     setConfig(DEFAULT_CONFIG);
+    setFps(0);
+    setSnapshotStatus('idle');
+    setMetricsStatus('idle');
+    setLastSnapshotAt(null);
+    setLastMetricsAt(null);
+    setApiError(null);
   }, []);
 
-  const isLive = Boolean(backgroundImage);
+  const handleFpsSample = useCallback((value: number) => {
+    setFps(value);
+  }, []);
 
   return (
     <div className="app">
@@ -72,7 +237,7 @@ const App: React.FC = () => {
             <h1 className="hero-title">Invisibility Cloak Studio</h1>
             <p className="hero-description">
               Efeito de manto da invisibilidade com visao computacional no navegador. Ajuste a cor
-              alvo, refine o recorte e crie a ilusao sem depender de servidores externos.
+              alvo, refine o recorte e sincronize resultados com o backend.
             </p>
           </div>
 
@@ -107,7 +272,7 @@ const App: React.FC = () => {
             <div className="canvas-header">
               <h2 className="canvas-title">Studio View</h2>
               <p className="canvas-subtitle">
-                Visualizacao ao vivo do recorte. Ative a captura de cor para ajustar com um clique.
+                Visualizacao ao vivo do recorte. Capture o fundo, ajuste matiz e envie snapshots.
               </p>
             </div>
             <CloakCanvas
@@ -115,8 +280,11 @@ const App: React.FC = () => {
               onBackgroundCaptured={handleBackgroundCaptured}
               triggerCapture={triggerCapture}
               triggerSnapshot={triggerSnapshot}
+              triggerUpload={triggerUpload}
               isPickingColor={isPickingColor}
               onColorPicked={handleColorPicked}
+              onSnapshotCaptured={handleSnapshotCaptured}
+              onFpsSample={handleFpsSample}
             />
           </section>
 
@@ -132,10 +300,27 @@ const App: React.FC = () => {
               onTogglePickColor={handleTogglePickColor}
             />
 
-            <Assistant
-              advice={advice}
-              hasBackground={isLive}
-              onApplyRecommendation={handleApplyRecommendation}
+            <Assistant advice={advice} hasBackground={isLive} onApplyRecommendation={handleApplyRecommendation} />
+
+            <ServerPanel
+              enabled={apiConfig.enabled}
+              apiKeyPresent={apiConfig.apiKey.length > 0}
+              baseUrl={apiConfig.baseUrl}
+              snapshotStatus={snapshotStatus}
+              metricsStatus={metricsStatus}
+              lastSnapshotAt={lastSnapshotAt}
+              lastMetricsAt={lastMetricsAt}
+              metricsEnabled={metricsEnabled}
+              fps={fps}
+              summary={summary}
+              history={history}
+              error={apiError}
+              onSendSnapshot={handleUploadSnapshot}
+              onToggleMetrics={handleToggleMetrics}
+              onRefresh={() => {
+                refreshHistory();
+                refreshSummary();
+              }}
             />
 
             <div className="panel">
