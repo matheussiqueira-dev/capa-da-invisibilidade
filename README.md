@@ -1,26 +1,29 @@
-# Web Invisibility Cloak
+# Capa da Invisibilidade
+
+Efeito de invisibilidade em tempo real no navegador com ajustes finos de cor e mascaramento. Projeto fullstack com frontend performatico e backend opcional para armazenamento de snapshots e metricas.
 
 ## Visao Geral
-Sistema fullstack que simula o efeito de manto da invisibilidade no navegador. O frontend processa a camera em tempo real e permite ajustes finos de matiz e mascaramento. O backend opcional armazena snapshots e metricas de performance para auditoria e analise.
+O frontend processa a camera localmente via Canvas, mantendo baixa latencia e privacidade. O backend (opcional) disponibiliza uma API REST para registrar resultados e metricas de desempenho, facilitando auditoria e analise.
 
-## Objetivo e Publico-Alvo
-- Criadores, estudantes e equipes que precisam demonstrar efeitos de visao computacional com baixa latencia.
-- Times que desejam registrar resultados e metricas sem depender de servicos externos.
+## Diferenciais
+- Processamento local de video para privacidade e baixa latencia
+- Controles visuais para calibracao precisa do efeito
+- Backend modular e pronto para evolucao
+- Setup simples para demonstracoes e estudos
 
-## Arquitetura e Decisoes Tecnicas
-- Frontend: processamento local em Canvas, sem servidores para o loop de video.
-- Backend: API REST modular em Fastify com autenticacao por API key.
-- Persistencia: armazenamento JSON em arquivo para facilitar setup local e facilitar migracao futura.
-- Observabilidade: endpoints de metricas e logs estruturados.
+## Arquitetura
+- Frontend: loop de video no Canvas, estado em React
+- Backend: API REST em Fastify com validacao e seguranca
+- Persistencia: JSON em arquivo para facilitar o setup local
 
 ## Stack e Tecnologias
-- Frontend: React, TypeScript, Vite, Canvas API, CSS com tokens de design
-- Backend: Node.js, Fastify, Zod, armazenamento JSON
+- Frontend: React, TypeScript, Vite, Canvas API
+- Backend: Node.js, Fastify, Zod
 - Testes: Node test runner (backend)
 
 ## Estrutura do Projeto
-- `App.tsx`: orquestracao do frontend, estado e integracoes
-- `components/`: UI e controles do efeito
+- `App.tsx`: orquestracao do frontend
+- `components/`: UI e controles
 - `services/`: regras de negocio e integracao com API
 - `utils/`: conversoes de cor e analise de cena
 - `backend/src/app.ts`: composicao do servidor
@@ -29,12 +32,12 @@ Sistema fullstack que simula o efeito de manto da invisibilidade no navegador. O
 - `backend/src/db/`: persistencia em arquivo
 - `backend/src/tests/`: testes automatizados
 
-## Setup e Execucao
+## Instalacao e Execucao
 Frontend:
 - `npm install`
 - `npm run dev`
 
-Backend:
+Backend (opcional):
 - `cd backend`
 - `npm install`
 - `cp .env.example .env`
@@ -73,14 +76,16 @@ Backend:
 - Autenticacao via API key
 - Rate limiting por IP
 - CORS configuravel por ambiente
-- Processamento local de video para privacidade
+- Processamento local de video
 - Design system com tokens e foco em acessibilidade
 
-## Possiveis Melhorias Futuras
+## Roadmap
 - Persistencia em PostgreSQL para alta escala
 - Exportacao de video e streaming
 - Dashboard em tempo real com WebSockets
 - Autenticacao OAuth2 e RBAC
 
-Autoria: Matheus Siqueira  
-Website: https://www.matheussiqueira.dev/
+## Autoria
+Matheus Siqueira
+
+Portfolio: www.matheussiqueira.dev
