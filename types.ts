@@ -11,6 +11,11 @@ export interface SceneMetrics {
   textureScore: number;
 }
 
+export interface SessionQuality {
+  score: number;
+  label: 'Excelente' | 'Boa' | 'Regular' | 'Critica';
+}
+
 export interface SceneAdvice {
   summary: string;
   lightingLabel: string;
@@ -27,4 +32,17 @@ export interface ProcessingConfig {
   valThreshold: number;
   edgeSoftness: number;
   targetFps: number;
+}
+
+export interface CalibrationPreset {
+  id: string;
+  name: string;
+  createdAt: string;
+  config: ProcessingConfig;
+}
+
+export interface TimelineSample {
+  createdAt: string;
+  fps: number;
+  qualityScore: number | null;
 }

@@ -6,12 +6,21 @@ export const errorHandler: FastifyPluginAsync = async (app) => {
     const statusCode = (error as { statusCode?: number }).statusCode ?? 500;
     const details = (error as { details?: unknown }).details;
 
-    request.log.error({ err }, 'Request failed');
+    request.log.error(
+      {
+        err,
+        route: request.url,
+        method: request.method,
+        requestId: request.id
+      },
+      'Request failed'
+    );
 
     reply.status(statusCode).send({
       error: statusCode >= 500 ? 'InternalServerError' : 'RequestError',
       message: statusCode >= 500 ? 'Internal server error' : err.message,
-      details: statusCode >= 500 ? undefined : details
+      details: statusCode >= 500 ? undefined : details,
+      requestId: request.id
     });
   });
 };

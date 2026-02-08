@@ -1,14 +1,11 @@
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
-/**
- * Converts RGB to HSL.
- * r, g, b are in [0, 255]
- * Returns { h, s, l } where h in [0, 360], s, l in [0, 100]
- */
-export const rgbToHsl = (r: number, g: number, b: number) => {
-  r /= 255;
-  g /= 255;
-  b /= 255;
+type MutableHsl = { h: number; s: number; l: number };
+
+const rgbToHslInternal = (rInput: number, gInput: number, bInput: number, out?: MutableHsl) => {
+  let r = rInput / 255;
+  let g = gInput / 255;
+  let b = bInput / 255;
 
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
@@ -33,8 +30,24 @@ export const rgbToHsl = (r: number, g: number, b: number) => {
     h /= 6;
   }
 
-  return { h: h * 360, s: s * 100, l: l * 100 };
+  const result = out ?? { h: 0, s: 0, l: 0 };
+  result.h = h * 360;
+  result.s = s * 100;
+  result.l = l * 100;
+  return result;
 };
+
+/**
+ * Converts RGB to HSL.
+ * r, g, b are in [0, 255]
+ * Returns { h, s, l } where h in [0, 360], s, l in [0, 100]
+ */
+export const rgbToHsl = (r: number, g: number, b: number) => {
+  return rgbToHslInternal(r, g, b);
+};
+
+export const rgbToHslInto = (r: number, g: number, b: number, out: MutableHsl) =>
+  rgbToHslInternal(r, g, b, out);
 
 /**
  * Hue distance with wrap-around support.

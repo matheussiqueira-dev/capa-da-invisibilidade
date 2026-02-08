@@ -24,13 +24,16 @@ export const securityPlugin: FastifyPluginAsync = async (app) => {
     }
 
     reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    reply.header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type, X-API-Key, X-Request-ID');
     reply.header('Access-Control-Max-Age', '600');
 
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('X-Frame-Options', 'DENY');
     reply.header('Referrer-Policy', 'no-referrer');
     reply.header('Permissions-Policy', 'camera=(), microphone=()');
+    reply.header('Cross-Origin-Opener-Policy', 'same-origin');
+    reply.header('Cross-Origin-Resource-Policy', 'same-origin');
+    reply.header('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
 
     if (request.method === 'OPTIONS') {
       reply.status(204).send();

@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { errorHandler } from './plugins/errorHandler.js';
 import { securityPlugin } from './plugins/security.js';
 import { rateLimitPlugin } from './plugins/rateLimit.js';
+import { enforceApiKey } from './plugins/apiKeyAuth.js';
 import { healthRoutes } from './routes/health.js';
 import { snapshotRoutes } from './routes/snapshots.js';
 import { metricsRoutes } from './routes/metrics.js';
@@ -38,21 +39,19 @@ export const buildApp = () => {
     apiBase: '/api/v1'
   }));
 
-  app.addHook('preHandler', async (request, reply) => {
-    if (!request.url.startsWith('/api/v1')) return;
-    if (request.method === 'OPTIONS') return;
-    const apiKey = request.headers['x-api-key'];
-    if (!apiKey || apiKey !== config.apiKey) {
-      return reply.status(401).send({
-        error: 'Unauthorized',
-        message: 'Invalid API key'
-      });
-    }
-  });
-
   app.register(
     async (api) => {
       await api.register(rateLimitPlugin);
+      api.addHook('preHandler', enforceApiKey);
+
+      api.get('/', async () => ({
+        version: 'v1',
+        resources: {
+          snapshots: '/api/v1/snapshots',
+          metrics: '/api/v1/metrics'
+        }
+      }));
+
       await api.register(snapshotRoutes);
       await api.register(metricsRoutes);
     },

@@ -9,9 +9,11 @@ interface AssistantProps {
 
 const Assistant: React.FC<AssistantProps> = ({ advice, hasBackground, onApplyRecommendation }) => {
   return (
-    <div className="panel">
+    <section className="panel" aria-labelledby="insights-title">
       <div>
-        <h3 className="panel-title">Insights de Cena</h3>
+        <h3 id="insights-title" className="panel-title">
+          Insights de Cena
+        </h3>
         <p className="panel-subtitle">Analise local e recomendacoes visuais para um recorte mais limpo.</p>
       </div>
 
@@ -69,7 +71,7 @@ const Assistant: React.FC<AssistantProps> = ({ advice, hasBackground, onApplyRec
           substituidos pelo fundo capturado, criando o efeito de invisibilidade em tempo real.
         </p>
       </details>
-    </div>
+    </section>
   );
 };
 

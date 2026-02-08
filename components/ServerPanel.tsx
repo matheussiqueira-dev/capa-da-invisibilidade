@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ApiSnapshotItem } from '../services/apiClient';
+import type { ApiMetricsTimelineItem, ApiSnapshotItem } from '../services/apiClient';
 
 interface ServerPanelProps {
   enabled: boolean;
@@ -11,10 +11,12 @@ interface ServerPanelProps {
   lastMetricsAt: string | null;
   metricsEnabled: boolean;
   fps: number;
-  summary: { total: number; avgFps: number; lastEventAt: string | null } | null;
+  summary: { total: number; avgFps: number; avgQualityScore: number; lastEventAt: string | null } | null;
   history: ApiSnapshotItem[];
+  timeline: ApiMetricsTimelineItem[];
   error: string | null;
   onSendSnapshot: () => void;
+  onDeleteSnapshot: (id: string) => void;
   onToggleMetrics: () => void;
   onRefresh: () => void;
 }
@@ -25,23 +27,23 @@ const formatDate = (value: string | null) => {
   return date.toLocaleString();
 };
 
-const buildFileUrl = (baseUrl: string, path: string) => {
+const buildFileUrl = (baseUrl: string, resourcePath: string) => {
   const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-  return `${normalizedBase}${path}`;
+  return `${normalizedBase}${resourcePath}`;
 };
 
 const statusLabel = (status: ServerPanelProps['snapshotStatus']) => {
   switch (status) {
     case 'sending':
-      return { label: 'Enviando', tone: 'warn' };
+      return { label: 'Enviando', tone: 'warn' as const };
     case 'success':
-      return { label: 'Sincronizado', tone: 'ok' };
+      return { label: 'Sincronizado', tone: 'ok' as const };
     case 'error':
-      return { label: 'Erro', tone: 'error' };
+      return { label: 'Erro', tone: 'error' as const };
     case 'disabled':
-      return { label: 'Desativado', tone: 'neutral' };
+      return { label: 'Desativado', tone: 'neutral' as const };
     default:
-      return { label: 'Aguardando', tone: 'neutral' };
+      return { label: 'Aguardando', tone: 'neutral' as const };
   }
 };
 
@@ -57,27 +59,30 @@ const ServerPanel: React.FC<ServerPanelProps> = ({
   fps,
   summary,
   history,
+  timeline,
   error,
   onSendSnapshot,
+  onDeleteSnapshot,
   onToggleMetrics,
   onRefresh
 }) => {
   const snapshotBadge = statusLabel(snapshotStatus);
   const metricsBadge = statusLabel(metricsStatus);
+  const maxTimelineFps = Math.max(1, ...timeline.map((item) => item.fps));
 
   return (
-    <div className="panel">
+    <section className="panel" aria-labelledby="api-panel-title">
       <div>
-        <h3 className="panel-title">Conexao com API</h3>
-        <p className="panel-subtitle">Sincronize snapshots e acompanhe metricas do efeito.</p>
+        <h3 id="api-panel-title" className="panel-title">
+          Conexao com API
+        </h3>
+        <p className="panel-subtitle">Snapshots, metricas e telemetria remota da sessao.</p>
       </div>
 
       <div className="status-grid">
         <div className="status-card">
           <span className="metric-label">Status</span>
-          <div className={`status-tag is-${enabled ? 'ok' : 'neutral'}`}>
-            {enabled ? 'Ativa' : 'Desativada'}
-          </div>
+          <div className={`status-tag is-${enabled ? 'ok' : 'neutral'}`}>{enabled ? 'Ativa' : 'Desativada'}</div>
           <span className="status-caption">Endpoint: {baseUrl}</span>
         </div>
         <div className="status-card">
@@ -85,12 +90,12 @@ const ServerPanel: React.FC<ServerPanelProps> = ({
           <div className={`status-tag is-${apiKeyPresent ? 'ok' : 'error'}`}>
             {apiKeyPresent ? 'Configurada' : 'Ausente'}
           </div>
-          <span className="status-caption">Use o .env para informar a chave.</span>
+          <span className="status-caption">Configure em `.env`.</span>
         </div>
         <div className="status-card">
           <span className="metric-label">FPS Atual</span>
           <div className="metric-value">{fps || 0}</div>
-          <span className="status-caption">Baseado no processamento real.</span>
+          <span className="status-caption">Amostra local em tempo real.</span>
         </div>
       </div>
 
@@ -101,10 +106,10 @@ const ServerPanel: React.FC<ServerPanelProps> = ({
           onClick={onSendSnapshot}
           disabled={!enabled || !apiKeyPresent || snapshotStatus === 'sending'}
         >
-          Enviar snapshot
+          Enviar snapshot (U)
         </button>
         <button type="button" className="button button--secondary" onClick={onRefresh}>
-          Atualizar historico
+          Atualizar dados
         </button>
         <button
           type="button"
@@ -128,13 +133,33 @@ const ServerPanel: React.FC<ServerPanelProps> = ({
           <span className="status-caption">Ultimo envio: {formatDate(lastMetricsAt)}</span>
         </div>
         <div className="status-card">
-          <span className="metric-label">Media FPS</span>
-          <div className="metric-value">{summary?.avgFps ?? 0}</div>
-          <span className="status-caption">Total eventos: {summary?.total ?? 0}</span>
+          <span className="metric-label">Score Medio</span>
+          <div className="metric-value">{summary?.avgQualityScore ?? 0}</div>
+          <span className="status-caption">FPS medio: {summary?.avgFps ?? 0}</span>
         </div>
       </div>
 
+      <div className="status-caption">Ultimo evento registrado: {formatDate(summary?.lastEventAt ?? null)}</div>
+
       {error && <div className="status-error">{error}</div>}
+
+      <div className="chart">
+        <div className="metric-label">Timeline remota de FPS</div>
+        {timeline.length === 0 ? (
+          <p className="panel-subtitle">Sem eventos recentes no backend.</p>
+        ) : (
+          <div className="chart-bars" role="img" aria-label="Grafico de FPS remoto">
+            {timeline.map((item, index) => (
+              <span
+                key={`${item.createdAt}-${index}`}
+                className="chart-bar chart-bar--api"
+                style={{ height: `${Math.max(10, (item.fps / maxTimelineFps) * 100)}%` }}
+                title={`${new Date(item.createdAt).toLocaleTimeString()} - ${item.fps} FPS`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       <div>
         <div className="inline-row">
@@ -148,23 +173,35 @@ const ServerPanel: React.FC<ServerPanelProps> = ({
             history.map((item) => (
               <div key={item.id} className="history-item">
                 <div>
-                  <div className="metric-value">{item.id.slice(0, 8)}</div>
+                  <div className="metric-value">{item.note || item.id.slice(0, 8)}</div>
                   <div className="status-caption">{formatDate(item.createdAt)}</div>
+                  <div className="status-caption">
+                    Sessao: {item.sessionId ?? '---'} | Score: {item.qualityScore ?? '---'}
+                  </div>
                 </div>
-                <a
-                  className="history-link"
-                  href={buildFileUrl(baseUrl, item.fileUrl)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir
-                </a>
+                <div className="inline-row">
+                  <a
+                    className="history-link"
+                    href={buildFileUrl(baseUrl, item.fileUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Abrir
+                  </a>
+                  <button
+                    type="button"
+                    className="button button--danger button--tiny"
+                    onClick={() => onDeleteSnapshot(item.id)}
+                  >
+                    Remover
+                  </button>
+                </div>
               </div>
             ))
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

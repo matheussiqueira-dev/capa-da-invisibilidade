@@ -1,4 +1,4 @@
-import { rgbToHsl } from './colorUtils';
+import { rgbToHslInto } from './colorUtils';
 import type { SceneMetrics } from '../types';
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -8,6 +8,7 @@ export const analyzeImageData = (imageData: ImageData): SceneMetrics => {
   const step = Math.max(4, Math.floor(Math.min(width, height) / 80));
   const hueBins = new Array(12).fill(0);
   const hueBinSize = 360 / hueBins.length;
+  const hsl = { h: 0, s: 0, l: 0 };
 
   let count = 0;
   let sumL = 0;
@@ -21,15 +22,15 @@ export const analyzeImageData = (imageData: ImageData): SceneMetrics => {
       const g = data[idx + 1];
       const b = data[idx + 2];
 
-      const { h, s, l } = rgbToHsl(r, g, b);
+      rgbToHslInto(r, g, b, hsl);
 
-      sumL += l;
-      sumS += s;
-      sumL2 += l * l;
+      sumL += hsl.l;
+      sumS += hsl.s;
+      sumL2 += hsl.l * hsl.l;
       count += 1;
 
-      if (s > 10 && l > 10 && l < 95) {
-        const bin = Math.floor(h / hueBinSize) % hueBins.length;
+      if (hsl.s > 10 && hsl.l > 10 && hsl.l < 95) {
+        const bin = Math.floor(hsl.h / hueBinSize) % hueBins.length;
         hueBins[bin] += 1;
       }
     }

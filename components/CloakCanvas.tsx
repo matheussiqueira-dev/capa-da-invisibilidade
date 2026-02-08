@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { ProcessingConfig, SceneMetrics } from '../types';
-import { rgbToHsl, getMatchStrength } from '../utils/colorUtils';
+import { getMatchStrength, rgbToHsl, rgbToHslInto } from '../utils/colorUtils';
 import { analyzeImageData } from '../utils/sceneAnalysis';
 
 interface CloakCanvasProps {
@@ -15,6 +15,8 @@ interface CloakCanvasProps {
   onFpsSample: (fps: number) => void;
 }
 
+type CameraError = 'PERMISSION_DENIED' | 'NO_DEVICE' | 'UNKNOWN' | null;
+
 const CloakCanvas: React.FC<CloakCanvasProps> = ({
   config,
   onBackgroundCaptured,
@@ -28,6 +30,7 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const backgroundRef = useRef<ImageData | null>(null);
   const animationFrameRef = useRef<number>();
   const configRef = useRef(config);
@@ -35,9 +38,11 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
   const lastFrameRef = useRef(0);
   const fpsFrameCountRef = useRef(0);
   const fpsLastTickRef = useRef(0);
+  const hslBufferRef = useRef({ h: 0, s: 0, l: 0 });
 
-  const [errorType, setErrorType] = useState<'PERMISSION_DENIED' | 'UNKNOWN' | null>(null);
+  const [errorType, setErrorType] = useState<CameraError>(null);
   const [overlayMessage, setOverlayMessage] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
 
   useEffect(() => {
     configRef.current = config;
@@ -51,35 +56,54 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
     overlayTimerRef.current = window.setTimeout(() => setOverlayMessage(null), duration);
   }, []);
 
-  useEffect(() => {
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: 'user' }
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play();
-          };
-        }
-      } catch (err: any) {
-        console.error('Error accessing camera:', err);
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          setErrorType('PERMISSION_DENIED');
-        } else {
-          setErrorType('UNKNOWN');
-        }
-      }
-    };
+  const stopStream = useCallback(() => {
+    if (videoRef.current?.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+      videoRef.current.srcObject = null;
+    }
+  }, []);
 
+  const startCamera = useCallback(async () => {
+    stopStream();
+    setErrorType(null);
+    setCameraReady(false);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480, facingMode: 'user' }
+      });
+
+      if (!videoRef.current) return;
+
+      videoRef.current.srcObject = stream;
+      videoRef.current.onloadedmetadata = () => {
+        videoRef.current?.play();
+        setCameraReady(true);
+      };
+    } catch (err: unknown) {
+      const error = err as { name?: string };
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setErrorType('PERMISSION_DENIED');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        setErrorType('NO_DEVICE');
+      } else {
+        setErrorType('UNKNOWN');
+      }
+    }
+  }, [stopStream]);
+
+  useEffect(() => {
+    if (canvasRef.current) {
+      ctxRef.current = canvasRef.current.getContext('2d', { willReadFrequently: true });
+    }
+  }, []);
+
+  useEffect(() => {
     startCamera();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      stopStream();
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -87,29 +111,26 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
         window.clearTimeout(overlayTimerRef.current);
       }
     };
-  }, []);
+  }, [startCamera, stopStream]);
 
   useEffect(() => {
-    if (triggerCapture === 0 || !canvasRef.current || !videoRef.current) {
+    if (triggerCapture === 0 || !canvasRef.current || !videoRef.current || !ctxRef.current) {
       return;
     }
 
     showOverlay('Capturando fundo...');
 
     const timer = window.setTimeout(() => {
-      if (!canvasRef.current || !videoRef.current) return;
+      if (!canvasRef.current || !videoRef.current || !ctxRef.current) return;
 
-      const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
-
-      ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-      const frame = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
+      ctxRef.current.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+      const frame = ctxRef.current.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height);
       backgroundRef.current = frame;
 
       const metrics = analyzeImageData(frame);
       onBackgroundCaptured(canvasRef.current.toDataURL('image/png'), metrics);
       showOverlay('Fundo capturado');
-    }, 600);
+    }, 450);
 
     return () => window.clearTimeout(timer);
   }, [triggerCapture, onBackgroundCaptured, showOverlay]);
@@ -124,7 +145,6 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
     link.href = dataUrl;
     link.download = `cloak-snapshot-${Date.now()}.png`;
     link.click();
-
     showOverlay('Snapshot salvo');
   }, [triggerSnapshot, showOverlay]);
 
@@ -140,7 +160,7 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
 
   const handleCanvasClick = useCallback(
     (event: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!isPickingColor || !canvasRef.current) return;
+      if (!isPickingColor || !canvasRef.current || !ctxRef.current) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
       const scaleX = canvasRef.current.width / rect.width;
@@ -152,12 +172,9 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
 
       const x = Math.min(Math.max(Math.round(mirroredX), 0), canvasRef.current.width - 1);
       const y = Math.min(Math.max(Math.round(rawY), 0), canvasRef.current.height - 1);
-
-      const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
-
-      const pixel = ctx.getImageData(x, y, 1, 1).data;
+      const pixel = ctxRef.current.getImageData(x, y, 1, 1).data;
       const { h } = rgbToHsl(pixel[0], pixel[1], pixel[2]);
+
       onColorPicked(h);
       showOverlay('Cor capturada');
     },
@@ -166,7 +183,7 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
 
   useEffect(() => {
     const processFrame = (time: number) => {
-      if (!canvasRef.current || !videoRef.current || videoRef.current.readyState !== 4) {
+      if (!canvasRef.current || !videoRef.current || !ctxRef.current || videoRef.current.readyState !== 4) {
         animationFrameRef.current = requestAnimationFrame(processFrame);
         return;
       }
@@ -180,11 +197,9 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
       }
       lastFrameRef.current = time;
 
-      const ctx = canvasRef.current.getContext('2d', { willReadFrequently: true });
-      if (!ctx) return;
-
       const width = canvasRef.current.width;
       const height = canvasRef.current.height;
+      const ctx = ctxRef.current;
 
       ctx.drawImage(videoRef.current, 0, 0, width, height);
 
@@ -196,20 +211,15 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
       const frameData = ctx.getImageData(0, 0, width, height);
       const pixelData = frameData.data;
       const bgData = backgroundRef.current.data;
-
+      const hslBuffer = hslBufferRef.current;
       const { targetHue, hueThreshold, satThreshold, valThreshold, edgeSoftness } = configRef.current;
-      const len = pixelData.length;
 
-      for (let i = 0; i < len; i += 4) {
-        const r = pixelData[i];
-        const g = pixelData[i + 1];
-        const b = pixelData[i + 2];
-
-        const { h, s, l } = rgbToHsl(r, g, b);
+      for (let i = 0; i < pixelData.length; i += 4) {
+        rgbToHslInto(pixelData[i], pixelData[i + 1], pixelData[i + 2], hslBuffer);
         const strength = getMatchStrength(
-          h,
-          s,
-          l,
+          hslBuffer.h,
+          hslBuffer.s,
+          hslBuffer.l,
           targetHue,
           hueThreshold,
           satThreshold,
@@ -217,9 +227,7 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
           edgeSoftness
         );
 
-        if (strength <= 0) {
-          continue;
-        }
+        if (strength <= 0) continue;
 
         const blend = edgeSoftness === 0 ? 1 : strength;
         pixelData[i] = pixelData[i] * (1 - blend) + bgData[i] * blend;
@@ -233,6 +241,7 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
       if (!fpsLastTickRef.current) {
         fpsLastTickRef.current = time;
       }
+
       const elapsed = time - fpsLastTickRef.current;
       if (elapsed >= 1000) {
         const fps = Math.round((fpsFrameCountRef.current * 1000) / elapsed);
@@ -245,20 +254,29 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
     };
 
     animationFrameRef.current = requestAnimationFrame(processFrame);
-
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, []);
+  }, [onFpsSample]);
+
+  const errorMessage =
+    errorType === 'PERMISSION_DENIED'
+      ? 'Permissao da camera negada. Ative a camera nas configuracoes do navegador.'
+      : errorType === 'NO_DEVICE'
+        ? 'Nenhuma camera foi encontrada neste dispositivo.'
+        : errorType === 'UNKNOWN'
+          ? 'Nao foi possivel acessar a camera. Tente novamente.'
+          : null;
 
   return (
     <div className={`canvas-shell ${isPickingColor ? 'is-picking' : ''}`}>
-      {errorType && (
+      {errorMessage && (
         <div className="canvas-overlay">
           <div className="overlay-card">
-            {errorType === 'PERMISSION_DENIED'
-              ? 'Permissao da camera negada. Ative e recarregue a pagina.'
-              : 'Nao foi possivel acessar a camera. Verifique se ela esta disponivel.'}
+            <p>{errorMessage}</p>
+            <button type="button" className="button button--secondary overlay-action" onClick={startCamera}>
+              Tentar novamente
+            </button>
           </div>
         </div>
       )}
@@ -275,15 +293,11 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
       />
 
       <div className="canvas-top-left">
-        <div
-          className="swatch"
-          style={{ backgroundColor: `hsl(${config.targetHue}, 100%, 50%)` }}
-          aria-hidden
-        />
+        <div className="swatch" style={{ backgroundColor: `hsl(${config.targetHue}, 100%, 50%)` }} aria-hidden />
         <span>Cor alvo</span>
       </div>
 
-      {backgroundRef.current && (
+      {cameraReady && backgroundRef.current && (
         <div className="canvas-top-right">
           <span className="live-dot" />
           <span>AO VIVO</span>
