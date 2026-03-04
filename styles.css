@@ -383,12 +383,46 @@ textarea {
 }
 
 .arcane-footer {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
   color: #6f688a;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  font-size: 0.77rem;
+  font-size: 0.88rem;
   font-weight: 600;
+}
+
+.developer-link {
+  color: #8f89ab;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.developer-link:hover {
+  color: #b9b3d5;
+}
+
+.whatsapp-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: linear-gradient(140deg, #33ca6a, #1fa851);
+  border: 1px solid rgba(66, 209, 118, 0.8);
+  color: #f5fff8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+  transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.whatsapp-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.07);
+  box-shadow: 0 10px 20px rgba(41, 184, 89, 0.35);
 }
 
 .sr-only {

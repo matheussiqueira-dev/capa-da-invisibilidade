@@ -217,7 +217,25 @@ const App: React.FC = () => {
           </aside>
         </main>
 
-        <footer className="arcane-footer">MINISTERIO DA MAGIA DIGITAL (C) 2025</footer>
+        <footer className="arcane-footer">
+          <a
+            className="developer-link"
+            href="https://www.matheussiqueira.dev/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Desenvolvido por Matheus Siqueira
+          </a>
+          <a
+            className="whatsapp-button"
+            href="https://wa.me/5581999203683"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Conversar no WhatsApp"
+          >
+            WhatsApp
+          </a>
+        </footer>
       </div>
 
       <p className="sr-only" role="status" aria-live="polite">
