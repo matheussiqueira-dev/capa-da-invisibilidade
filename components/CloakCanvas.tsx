@@ -130,7 +130,7 @@ const CloakCanvas: React.FC<CloakCanvasProps> = ({
       const metrics = analyzeImageData(frame);
       onBackgroundCaptured(canvasRef.current.toDataURL('image/png'), metrics);
       showOverlay('Fundo capturado');
-    }, 450);
+    }, 3000);
 
     return () => window.clearTimeout(timer);
   }, [triggerCapture, onBackgroundCaptured, showOverlay]);
