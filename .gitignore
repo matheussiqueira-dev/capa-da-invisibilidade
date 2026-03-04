@@ -32,3 +32,4 @@ backend/data/
 *.njsproj
 *.sln
 *.sw?
+.vercel
