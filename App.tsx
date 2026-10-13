@@ -226,15 +226,6 @@ const App: React.FC = () => {
           >
             Desenvolvido por Matheus Siqueira
           </a>
-          <a
-            className="whatsapp-button"
-            href="https://wa.me/5581999203683"
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Conversar no WhatsApp"
-          >
-            WhatsApp
-          </a>
         </footer>
       </div>
 
